@@ -75,16 +75,18 @@ def plot_feature_map(instance,col=8,fig_size=(12,10),use_title=False):
         fig.tight_layout()
 
 def all_plot_feature(dic:dict,use_title=False,*args):
-    used_key = []
+    """
+    example : all_plot_feature(out_dict,True,*[_ for _ in out_dict.keys()][:])
+    """
+    not_used_key = []
     for key in dic.keys():
         if ('conv' in key and 'flatten' not in key) or ('block' in key):
             plot_feature_map(dic[key][0],10,use_title=use_title)
-            used_key.append(key)
+        else : not_used_key.append(key)
     
     for arg in args:
         try:
-            if (str(arg) in dic.keys()) and (arg not in used_key):
-                plot_feature_map(dic[key][0],10,use_title=use_title)
+            if (str(arg) in not_used_key):
+                plot_feature_map(dic[arg][0],10,use_title=use_title)
         except:
             continue
-
