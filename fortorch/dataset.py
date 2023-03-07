@@ -3,17 +3,25 @@ import torch
 import numpy as np
 
 from torchvision.transforms import transforms
-from torch.utils.data import DataLoader,Dataset
+from torchvision.datasets import ImageFolder
+from torch.utils.data import DataLoader,Dataset,Subset
 from PIL import Image
 
 class ImageDataset(Dataset):
     def __init__(self,root,classes,target_size:tuple,shuffle=False,**kwargs):
         super().__init__()
         self.root=  root
-        self.classes = classes
-        self.target_size = target_size
+        self.classes = [str(c) for c in classes]
+        self.target_size = target_size if not type(classes) is int else (target_size,target_size)
         self.shuffle = shuffle        
 
+        self.all_dir = kwargs.pop('all_dir',None)
+        if self.all_dir is not None:
+            if self.all_dir == True:
+                temp = np.array(['unknown'])
+                self.classes = np.array(os.listdir(self.root))
+                self.classes = np.append(temp,self.classes)
+                print(self.classes)
         self._load_data()
         self._set_index_array()     
         self._set_shuffle()
@@ -22,6 +30,8 @@ class ImageDataset(Dataset):
         self.samples = kwargs.pop('samples',None)
         if self.samples is not None:
             self._sampling_data()
+
+        
 
     def _sampling_data(self):
         s = np.random.choice(self.__len__()-self.samples,1).item() if self.shuffle else 0
@@ -42,11 +52,13 @@ class ImageDataset(Dataset):
             self.data.extend([os.path.join(sub_dir,sub_file) for sub_file in sub_files])
             l=len(sub_files)
             self.label.extend([i for _ in range(l)])
+            
             print(f'Found {l} images in "{cla}" directory.')
 
         self.data = np.array(self.data) 
         self.label = np.array(self.label)
         
+
     def _set_index_array(self):
         self.index_array = np.arange(self.__len__())
         if self.shuffle:
@@ -106,6 +118,45 @@ class FaceClfDataset(ImageDataset):
         x,y = super().__getitem__(index)
         return self.transform(x),self._class_mode(y)
 
+    def get_sample(self, index):
+        return super().__getitem__(index)
+
     def __len__(self):
         return super().__len__()    
 
+def get_train_dataset(imgs_folder):
+    train_transform = transforms.Compose([
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    ])
+    ds = ImageFolder(imgs_folder, train_transform)
+    class_num = ds[-1][1] + 1 # tuple[tensor, label] label + 1
+    return ds, class_num
+
+
+def split_dataset(dataset,test_size,shuffle=False):
+    # dataset class only have this attribute
+    datas = dataset.data
+    labels = dataset.label
+
+    train_proportion = 1. - test_size
+    test_proportion = test_size
+
+    train_indices = np.array([], dtype=np.int64)
+    test_indices = np.array([], dtype=np.int64)
+
+    for c in np.unique(labels):
+        indices_c = np.where(labels == c)[0]
+        np.random.shuffle(indices_c)
+        num_train = int(np.round(len(indices_c) * train_proportion))
+        num_test = len(indices_c) - num_train
+        train_indices_c = indices_c[:num_train]
+        test_indices_c = indices_c[num_train:num_train+num_test]
+        train_indices = np.concatenate((train_indices, train_indices_c))
+        test_indices = np.concatenate((test_indices, test_indices_c))
+    if shuffle:
+        np.random.shuffle(train_indices)
+        np.random.shuffle(test_indices)
+
+    return Subset(dataset,train_indices), Subset(dataset,test_indices)

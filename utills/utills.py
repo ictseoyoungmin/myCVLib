@@ -1,4 +1,4 @@
-import os
+import os,sys
 import numpy as np
 import matplotlib.pyplot as plt
 import itertools
@@ -59,6 +59,14 @@ def plot_result(samples,preds,true_label=None,labels=[None,None]):
         ax.axis('off')
         true_text = f"T : {true_label}" if true_label is not None else ""
         ax.set_title("P : "+label+" "+str(l) + true_text)  
+
+def ipy_path_append(root=None):
+    r = root if root is not None else os.getcwd()
+    for path in os.listdir(r):
+        if os.path.isdir(path):
+            ipy_path_append(path)
+            if path not in sys.path:
+                sys.path.append(path)
 
 
 class ConfusionMatrix:
